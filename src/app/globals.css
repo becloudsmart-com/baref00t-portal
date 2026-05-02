@@ -1,0 +1,59 @@
+@import 'tailwindcss';
+
+/* ── Design tokens ───────────────────────────────────────────────────────
+   --color-brand* are injected at request time by layout.tsx from BRAND_*
+   env vars. The defaults below match the apps/web design system but are
+   overridden whenever the partner sets BRAND_PRIMARY_COLOR. */
+:root {
+  --color-brand: #00cc66;
+  --color-brand-hover: #00b35a;
+  --color-brand-muted: rgba(0, 204, 102, 0.12);
+
+  --color-bg: #080808;
+  --color-bg-elev: #111111;
+  --color-text: #e4e4e4;
+  --color-text-muted: #888;
+  --color-border: #2a2a2a;
+  --color-red: #ff4444;
+  --color-amber: #ffb020;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+[data-theme='light'] {
+  --color-bg: #ffffff;
+  --color-bg-elev: #f8f8f8;
+  --color-text: #1a1a1a;
+  --color-text-muted: #666;
+  --color-border: #e0e0e0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv11', 'ss01';
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--color-brand);
+}
+a:hover {
+  color: var(--color-brand-hover);
+}
+
+/* Utility — surface used for cards, panels, etc. */
+.surface {
+  background-color: var(--color-bg-elev);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+}
