@@ -1,0 +1,108 @@
+'use server'
+
+import { isAdmin } from '@/lib/requireAdmin'
+import { revalidatePath } from 'next/cache'
+import {
+  disconnectMail,
+  sendMailTest,
+  setMailMode,
+  setSharedMailbox,
+  type MailProvider,
+} from '@/lib/partner-mail-api'
+
+export interface ActionResult {
+  ok: boolean
+  message?: string
+  error?: string
+}
+
+export async function setMailModeAction(mode: MailProvider): Promise<ActionResult> {
+  // #985 — a server action is a POST endpoint; hiding the button stops nobody
+  // who can craft the request. The platform cannot gate this for us: the portal
+  // authenticates with one shared raw `pk_` key, which is Admin-equivalent by
+  // design, so `requireAdminOnPartner()` passes for every portal caller.
+  if (!(await isAdmin())) return { ok: false, error: 'Admin role required.' }
+  if (mode !== 'resend' && mode !== 'microsoft' && mode !== 'off') {
+    return { ok: false, error: 'Invalid mode' }
+  }
+  const result = await setMailMode(mode)
+  if (!result.ok) return { ok: false, error: result.error }
+  revalidatePath('/admin/mail')
+  return { ok: true, message: `Mail provider set to ${mode}.` }
+}
+
+export async function disconnectMailAction(): Promise<ActionResult> {
+  // #985 — a server action is a POST endpoint; hiding the button stops nobody
+  // who can craft the request. The platform cannot gate this for us: the portal
+  // authenticates with one shared raw `pk_` key, which is Admin-equivalent by
+  // design, so `requireAdminOnPartner()` passes for every portal caller.
+  if (!(await isAdmin())) return { ok: false, error: 'Admin role required.' }
+  const result = await disconnectMail()
+  if (!result.ok) return { ok: false, error: result.error }
+  revalidatePath('/admin/mail')
+  return { ok: true, message: 'Microsoft mailbox disconnected. Outbound mail will fall back to Resend until reconnected.' }
+}
+
+export async function sendMailTestAction(): Promise<ActionResult> {
+  // #985 — a server action is a POST endpoint; hiding the button stops nobody
+  // who can craft the request. The platform cannot gate this for us: the portal
+  // authenticates with one shared raw `pk_` key, which is Admin-equivalent by
+  // design, so `requireAdminOnPartner()` passes for every portal caller.
+  if (!(await isAdmin())) return { ok: false, error: 'Admin role required.' }
+  const result = await sendMailTest()
+  if (!result.ok) {
+    return {
+      ok: false,
+      error: result.error,
+    }
+  }
+  return {
+    ok: true,
+    message: `Test email queued — check ${result.data.recipient} (sent from ${result.data.fromMailbox}).`,
+  }
+}
+
+export async function setSharedMailboxAction(upn: string | null): Promise<ActionResult> {
+  // #985 — a server action is a POST endpoint; hiding the button stops nobody
+  // who can craft the request. The platform cannot gate this for us: the portal
+  // authenticates with one shared raw `pk_` key, which is Admin-equivalent by
+  // design, so `requireAdminOnPartner()` passes for every portal caller.
+  if (!(await isAdmin())) return { ok: false, error: 'Admin role required.' }
+  const trimmed = upn?.trim() || null
+  if (trimmed && !trimmed.includes('@')) {
+    return { ok: false, error: 'Shared mailbox must be a UPN (looks like an email).' }
+  }
+  const result = await setSharedMailbox(trimmed)
+  if (!result.ok) return { ok: false, error: result.error }
+  revalidatePath('/admin/mail')
+  return {
+    ok: true,
+    message: trimmed ? `Shared mailbox set to ${trimmed}.` : 'Shared mailbox cleared — sending as the connected user.',
+  }
+}
+
+// ── F41 Connect — get authorize URL via SDK ────────────────────────────
+import { partnerClient } from '@/lib/api'
+import { logger } from '@/lib/logger'
+
+export interface StartConnectResult {
+  ok: boolean
+  authorizeUrl?: string
+  error?: string
+}
+
+export async function startConnectAction(input: { returnTo: string }): Promise<StartConnectResult> {
+  // #985 — a server action is a POST endpoint; hiding the button stops nobody
+  // who can craft the request. The platform cannot gate this for us: the portal
+  // authenticates with one shared raw `pk_` key, which is Admin-equivalent by
+  // design, so `requireAdminOnPartner()` passes for every portal caller.
+  if (!(await isAdmin())) return { ok: false, error: 'Admin role required.' }
+  try {
+    const result = await partnerClient().mail.startConnect(input)
+    return { ok: true, authorizeUrl: result.authorizeUrl }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    logger().warn({ err: msg }, 'startConnectAction failed')
+    return { ok: false, error: msg }
+  }
+}
